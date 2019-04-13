@@ -1,0 +1,515 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Mappings": {
+        "Config": {
+            "dev": {
+                "VpcCIDR": "10.10.0.0/16"
+            },
+            "qa": {
+                "VpcCIDR": "10.5.0.0/16"
+            },
+            "prod": {
+                "VpcCIDR": "10.16.0.0/16"
+            }
+        }
+    },
+    "Parameters": {
+        "Environment": {
+            "Type": "String",
+            "AllowedValues": [
+                "dev",
+                "qa",
+                "prod"
+            ],
+            "Default": "qa",
+            "ConstraintDescription": " Environmnet must specify dev, qa or prod "
+        },
+        "Product": {
+            "Type": "String",
+            "Default": "example"
+        },
+        "Service": {
+            "Type": "String",
+            "Default": "vpc"
+        },
+        "IsProductionDeployment": {
+            "Type": "String",
+            "AllowedValues": [
+                "true",
+                "false"
+            ],
+            "Default": "true"
+        },
+        "SubnetCount": {
+            "Type": "Number",
+            "Default": "12"
+        },
+        "SubnetMask": {
+            "Type": "Number",
+            "Default": "12"
+        }
+    },
+    "Conditions": {
+        "ProdCondition": {
+            "Fn::Equals": [{
+                    "Ref": "IsProductionDeployment"
+                },
+                "true"
+            ]
+        },
+        "Core": {
+            "Fn::Equals": [{
+                    "Ref": "Environment"
+                },
+                "prod"
+            ]
+        },
+        "NotCore": {
+            "Fn::Not": [{
+                "Fn::Equals": [{
+                        "Ref": "Environment"
+                    },
+                    "dev"
+                ]
+            }]
+        },
+        "qaCore": {
+            "Fn::Not": [{
+                "Fn::Equals": [{
+                        "Ref": "Environment"
+                    },
+                    "qa"
+                ]
+            }]
+        }
+    },
+    "Resources": {
+        "vpc": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Fn::FindInMap": ["Config", {
+                        "Ref": "Environment"
+                    }, "VpcCIDR"]
+                },
+                "EnableDnsSupport": true,
+                "EnableDnsHostnames": true,
+                "InstanceTenancy": "default",
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", [{
+                            "Ref": "Environment"
+                        }, {
+                            "Ref": "Product"
+                        }, "vpc"]]
+                    }
+                }]
+            }
+        },
+        "PublicSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [0, {
+                        "Fn::GetAZs": {
+                            "Ref": "AWS::Region"
+                        }
+                    }]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [0, {
+                        "Fn::Cidr": [{
+                            "Fn::GetAtt": ["vpc", "CidrBlock"]
+                        }, {
+                            "Ref": "SubnetCount"
+                        }, {
+                            "Ref": "SubnetMask"
+                        }]
+                    }]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", ["Public A ", {
+                            "Ref": "Environment"
+                        },{"Ref":"Service"}]]
+                    }
+                }]
+            }
+        },
+        "PublicSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [1, {
+                        "Fn::GetAZs": {
+                            "Ref": "AWS::Region"
+                        }
+                    }]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [1, {
+                        "Fn::Cidr": [{
+                            "Fn::GetAtt": ["vpc", "CidrBlock"]
+                        }, {
+                            "Ref": "SubnetCount"
+                        }, {
+                            "Ref": "SubnetMask"
+                        }]
+                    }]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", ["Public B ", {
+                            "Ref": "Environment"
+                        },{"Ref":"Service"}]]
+                    }
+                }]
+            }
+        },
+        "PrivateSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [0, {
+                        "Fn::GetAZs": {
+                            "Ref": "AWS::Region"
+                        }
+                    }]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [2, {
+                        "Fn::Cidr": [{
+                            "Fn::GetAtt": ["vpc", "CidrBlock"]
+                        }, {
+                            "Ref": "SubnetCount"
+                        }, {
+                            "Ref": "SubnetMask"
+                        }]
+                    }]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", ["Private A ", {
+                            "Ref": "Environment"
+                        },{"Ref":"Service"}]]
+                    }
+                }]
+            }
+        },
+        "PrivateSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": {
+                    "Fn::Select": [1, {
+                        "Fn::GetAZs": {
+                            "Ref": "AWS::Region"
+                        }
+                    }]
+                },
+                "CidrBlock": {
+                    "Fn::Select": [3, {
+                        "Fn::Cidr": [{
+                            "Fn::GetAtt": ["vpc", "CidrBlock"]
+                        }, {
+                            "Ref": "SubnetCount"
+                        }, {
+                            "Ref": "SubnetMask"
+                        }]
+                    }]
+                },
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", ["Private B ", {
+                            "Ref": "Environment"
+                        },{"Ref":"Service"}]]
+                    }
+                }]
+            }
+        },
+        "igw": {
+            "Type": "AWS::EC2::InternetGateway"
+        },
+        "igwattachment": {
+            "DependsOn": "igw",
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "InternetGatewayId": {
+                    "Ref": "igw"
+                }
+            }
+        },
+        "neip": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "ngw": {
+            "DependsOn": "igwattachment",
+            "Type": "AWS::EC2::NatGateway",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": ["neip", "AllocationId"]
+                },
+                "SubnetId": {
+                    "Ref": "PublicSubnetA"
+                },
+                "Tags" : [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", [{
+                            "Ref": "Environment"
+                        }, "ngw"]]
+                    }
+                }]
+            }
+        },
+        "PublicRt": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                }
+            }
+        },
+        "PublicRouteAddition": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PublicRt"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "igw"
+                }
+            }
+        },
+        "PrivateRt": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "vpc"
+                }
+            }
+        },
+        "PrivateRtAddition": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PrivateRt"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "NatGatewayId": {
+                    "Ref": "ngw"
+                }
+            }
+        },
+        "PuS1RtAssocitation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PublicRt"
+                },
+                "SubnetId": {
+                    "Ref": "PublicSubnetA"
+                }
+            }
+        },
+        "PuS2RtAssocitation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PublicRt"
+                },
+                "SubnetId": {
+                    "Ref": "PublicSubnetB"
+                }
+            }
+        },
+        "PrS1RtAssocitation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PrivateRt"
+                },
+                "SubnetId": {
+                    "Ref": "PrivateSubnetA"
+                }
+            }
+        },
+        "PrS2RtAssocitation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "PrivateRt"
+                },
+                "SubnetId": {
+                    "Ref": "PrivateSubnetB"
+                }
+            }
+        },
+        "SecurityGroups": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "DependsOn": "vpc",
+            "Properties": {
+                "GroupName": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "sg"]]
+                },
+                "GroupDescription": "Permits SSH , HTTP, HTTPS access for ALL Public Users",
+                "VpcId": {
+                    "Ref": "vpc"
+                },
+                "SecurityGroupIngress": [{
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow SSH Traffic for All"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP Traffic for All"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTPS Traffic for All"
+                    }
+                ],
+                "SecurityGroupEgress": [{
+                    "IpProtocol": "-1",
+                    "FromPort": 0,
+                    "ToPort": 0,
+                    "CidrIp": "0.0.0.0/0",
+                    "Description": "Outbound traffic for all"
+                }],
+                "Tags": [{
+                    "Key": "Name",
+                    "Value": {
+                        "Fn::Join": ["-", [{
+                            "Ref": "Environment"
+                        }, {
+                            "Ref": "Product"
+                        }, "sg"]]
+                    }
+                }]
+            }
+        }
+    },
+    "Outputs": {
+        "vpcId": {
+            "Value": {
+                "Ref": "vpc"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "vpc"]]
+                }
+            }
+        },
+        "sgid": {
+            "Value": {
+                "Ref": "SecurityGroups"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "sg"]]
+                }
+            }
+        },
+        "PubSubnetA": {
+            "Value": {
+                "Ref": "PublicSubnetA"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "PublicA"]]
+                }
+            }
+        },
+        "PubSubnetB": {
+            "Value": {
+                "Ref": "PublicSubnetB"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "PublicB"]]
+                }
+            }
+        },
+        "PrtSubnetA": {
+            "Value": {
+                "Ref": "PrivateSubnetA"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "PrivateA"]]
+                }
+            }
+        },
+        "PrtSubnetB": {
+            "Value": {
+                "Ref": "PrivateSubnetB"
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "Environment"
+                    }, {
+                        "Ref": "Product"
+                    }, "PrivateB"]]
+                }
+            }
+        }
+    }
+}
