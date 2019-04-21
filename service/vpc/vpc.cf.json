@@ -427,6 +427,24 @@
         }
     },
     "Outputs": {
+        "vpcCidrBlock": {
+            "Description": "The set of IP addresses for the VPC.",
+            "Value": {
+                "Fn::GetAtt": [
+                    "vpc",
+                    "CidrBlock"
+                ]
+            },
+            "Export": {
+                "Name": {
+                    "Fn::Join": ["-", [{
+                        "Ref": "environment"
+                    }, {
+                        "Ref": "product"
+                    }, "cidrblock"]]
+                }
+            }
+        },
         "vpcId": {
             "Value": {
                 "Ref": "vpc"
